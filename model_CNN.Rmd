@@ -1,0 +1,96 @@
+---
+title: "CNN Model Analysis"
+author: "Sindy Du"
+output: html_document
+---
+
+```{r,results='hide', message=FALSE,echo=FALSE}
+library(rgdal)
+library(tidyverse)
+library(DescTools)
+library(lubridate)
+library(readr)
+library(here)
+library(ggplot2)
+library(plotly)
+library(xgboost)
+library(forecast)
+library(xtable)
+library(gridExtra)
+library(rmarkdown)
+library(here)
+library(readr)
+library(dplyr)
+library(tidymodels)
+library(gridExtra)
+library(xtable)
+library(keras)
+```
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# load("array_from_each_location_here")
+```
+
+For each location, run the following code to get the predictions/RMSE of the testing set.
+
+```{r, results='hide', message=FALSE,echo=FALSE}
+# split to a training set (80%) and a testing set (20%)
+set.seed(123)
+split <- sample(c(rep(0, 0.8 * length(location$pmFRM)), 
+                  rep(1, 0.2 * length(location$pmFRM))))
+
+xtrain <- location_summary[split == 0, , ,]
+xtrain <- xtrain %>% replace(is.na(.), 0)
+
+xtest <- location_summary[split == 1, , ,]
+xtest <- xtest %>% replace(is.na(.), 0)
+
+ytrain <- matrix(location$pmFRM[split == 0], ncol = 1)
+ytest <- matrix(location$pmFRM[split == 1], ncol = 1)
+
+```
+
+
+```{r}
+# set up the CNN architecture
+set.seed(123)
+
+model <- keras_model_sequential() %>%
+  layer_conv_2d(filters = 32, kernel_size = c(3, 3),
+               input_shape = c(dim(location_summary)[2], 
+                               dim(location_summary)[3], 4), 
+               activation = "relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>% 
+  layer_conv_2d(filters = 64, kernel_size = c(3,3), 
+                activation = 'relu') %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  layer_flatten() %>%
+  layer_dense(units = 256, activation = "relu") %>%
+  layer_dense(units = 1)
+
+# set the metric to mse
+model %>% compile(
+  loss = "mse",
+  optimizer =  "adam", 
+  metrics = list("mean_absolute_error"))
+
+# look at the summary of the model
+model %>% summary()
+
+# fit the model using 10 epochs and bath size of 32
+model %>% fit(xtrain, ytrain, epochs = 10, batch_size = 32, verbose = 0)
+
+# calculate the score of training set
+scores <- model %>% evaluate(xtrain, ytrain, batch_size = 10, verbose = 0)
+print(scores)
+
+# get the predictions of the testing set
+ypred <- model %>% 
+  predict(xtest) 
+
+# calculate the RMSE of the testing set
+cat("RMSE:", RMSE(ytest, ypred))
+
+```
+
+
