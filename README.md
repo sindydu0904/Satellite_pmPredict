@@ -1,6 +1,5 @@
 # Satellite_pmPredict
-
-Machine learning approaches to predict PM<sub>2.5</sub> using satellite images
+## Machine learning approaches to predict PM<sub>2.5</sub> using satellite images
 
 Author: Xinyu (Sindy) Du
 
